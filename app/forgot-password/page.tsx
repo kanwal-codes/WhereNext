@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
       title="We’ll send you a way back in."
       subtitle="Enter the email on your account and we’ll send a single-use reset link."
       footer={
-        <Link href="/sign-in" className="link-underline inline-flex items-center gap-1.5 text-foreground">
+        <Link href="/sign-in" className="link-underline -my-3 inline-flex items-center gap-1.5 py-3 text-foreground">
           <ArrowLeft className="size-3.5" /> Back to sign in
         </Link>
       }

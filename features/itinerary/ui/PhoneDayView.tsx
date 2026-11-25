@@ -52,6 +52,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
   const [phoneDay, setPhoneDay] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [toolsItem, setToolsItem] = useState<ItineraryItem | null>(null);
+  const toolsTitle = useRef<HTMLParagraphElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const { items, itemsByDay, days, bookedByDay, conflictsByDay, reservations, removed, near, cityFor } = plan;
   const { move, moveWithinDay, toggleLock, setTime, remove, restore, openPlace, resolvingTitle } = actions;
@@ -179,7 +180,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
       {removed && (
         <p role="status" className="mt-4 rounded-2xl bg-muted px-4 py-3 text-sm">
           {removed.title} removed.{" "}
-          <button type="button" onClick={() => void restore()} className="min-h-11 font-medium underline underline-offset-4">Undo</button>
+          <button type="button" onClick={() => void restore()} className="relative min-h-0! font-medium underline underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">Undo</button>
         </p>
       )}
 
@@ -205,7 +206,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
         })}
       />
 
-      <Sheet open={toolsItem !== null} onClose={() => setToolsItem(null)} side="bottom" ariaLabel={toolsItem ? `Options for ${toolsItem.title}` : "Stop options"} padded>
+      <Sheet open={toolsItem !== null} onClose={() => setToolsItem(null)} side="bottom" ariaLabel={toolsItem ? `Options for ${toolsItem.title}` : "Stop options"} initialFocus={toolsTitle} padded>
         {toolsItem && (() => {
           const item = items.find((i) => i.id === toolsItem.id) ?? toolsItem;
           const list = itemsByDay.get(item.day_index) ?? [];
@@ -216,7 +217,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
           const run = (fn: () => void) => () => { fn(); setToolsItem(null); };
           return (
             <>
-              <p className="truncate font-display text-xl font-medium tracking-[-0.02em]">{item.title}</p>
+              <p ref={toolsTitle} tabIndex={-1} className="truncate font-display text-xl font-medium tracking-[-0.02em] outline-none">{item.title}</p>
               <label className="mt-2 flex min-h-14 items-center justify-between gap-3 rounded-2xl px-3">
                 <span className="flex items-center gap-3 text-body font-medium"><Clock className="size-5 text-muted-foreground" aria-hidden /> Time</span>
                 <TimeField value={time} disabled={locked} onChange={(v) => setTime(item, v || null)} ariaLabel={`Target time for ${item.title}`} placeholder="Add time" className="w-40" />

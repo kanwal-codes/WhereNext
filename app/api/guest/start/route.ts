@@ -3,6 +3,7 @@ import { z } from "zod";
 import { fail, withRoute } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { enrichTripFromPrompt } from "@/lib/application/enrich-trip";
+import { localToday } from "@/lib/local-today";
 import { logger } from "@/lib/server/logger";
 import { createTripInput } from "@/features/trip/domain/trip";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
@@ -81,8 +82,9 @@ export const POST = withRoute(async function POST(request: Request) {
     // same sentence too, so the chat never waits on it).
     const input = createTripInput.parse({ name: "Untitled trip", idempotencyKey: parsed.data.idempotencyKey });
     const trip = await createTrip(createTripRepository(supabase), user.id, input, { opener: false });
+    const today = localToday(request.headers);
     after(() =>
-      enrichTripFromPrompt(supabase, trip.id, parsed.data.prompt).catch((err) =>
+      enrichTripFromPrompt(supabase, trip.id, parsed.data.prompt, today).catch((err) =>
         logger.warn({ err, tripId: trip.id }, "couldn't read a guest trip's sentence; the trip stays blank"),
       ),
     );

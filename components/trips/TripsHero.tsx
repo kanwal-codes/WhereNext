@@ -86,7 +86,7 @@ export function TripsHero({ displayName, start, compact = false }: { displayName
                     aria-pressed={speech.listening}
                     disabled={starting}
                     className={cn(
-                      "daisy-btn daisy-btn-circle daisy-btn-ghost size-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 transition-colors disabled:opacity-40",
+                      "daisy-btn daisy-btn-circle daisy-btn-ghost size-10 max-lg:size-11 shrink-0 border-0 transition-colors disabled:opacity-40",
                       speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -99,7 +99,7 @@ export function TripsHero({ displayName, start, compact = false }: { displayName
                   title="Start planning"
                   disabled={!canSend}
                   className={cn(
-                    "daisy-btn daisy-btn-circle size-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-[0.97]",
+                    "daisy-btn daisy-btn-circle size-10 max-lg:size-11 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-[0.97]",
                     canSend ? "bg-coral text-background" : "bg-foreground/8 text-muted-foreground",
                   )}
                 >

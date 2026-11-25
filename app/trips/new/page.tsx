@@ -5,7 +5,7 @@ import { OpenNewTrip } from "@/features/trip-setup/ui/OpenNewTrip";
 import { Reveal } from "@/components/motion-primitives";
 
 export const metadata = {
-  title: "Create a trip — Where next?",
+  title: "Create a trip · Where next?",
   description: "Start with a conversation. Your trip takes shape as you talk.",
 };
 

@@ -67,7 +67,7 @@ export function modelChainFor(role: ModelRole): ModelChainEntry[] {
 }
 
 /**
- * Hard deadlines for AI calls inside a chat turn — a stalled gateway (throttling, a slow
+ * Hard deadlines for AI calls inside a chat turn — a stalled provider (throttling, a slow
  * fallback) must fail fast to its graceful path, never hang the turn. Tune here.
  */
 export const AI_DEADLINE_MS = {
@@ -179,12 +179,8 @@ export async function generateStructured<T>(
   signal?: AbortSignal,
   onUsage?: (entry: UsageEntry) => void,
 ): Promise<T> {
-  // RESOLVE's system prompt (~16KB) is identical on every turn — ask the Gateway to cache it
-  // (Phase 2.4, docs/overhaul/roadmap/phase-2-speed.md). Measured (one-off script, since removed) to be a no-op today: every provider actually in RESOLVE's chain (Cerebras-hosted
-  // OpenAI model, Gemini, OpenAI-mini fallbacks) already caches implicitly with zero code change
-  // — `cacheReadTokens` showed up on a repeat call with no flag set at all. Set anyway, harmlessly,
-  // so this keeps working the day an explicit-caching provider (Anthropic/MiniMax/Alibaba) joins
-  // this chain. `bulk`/`compose` don't get this — out of this sub-phase's scope, unmeasured.
+  // RESOLVE's system prompt (~16KB) is identical on every turn, so it is marked for Anthropic's prompt cache (`caching: "auto"`).
+  // Only RESOLVE is marked; the other roles' prompts have not been measured for it.
   // Builders (bulk, day) write JSON the app turns into a card: a builder-shaped call took 7.2-10.9 s by default and 4.5-5.4 s with thinking
   // lowest, on about half the tokens. RESOLVE is the same: on its heavy messages (cannabis, rainy day with kids) it wrote 650-800 tokens, most of
   // them hidden reasoning, and took 5.7-6.3 s; with thinking lowest 3.2-4.4 s, and routing differs from run to run no more than it already does

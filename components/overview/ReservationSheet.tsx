@@ -28,7 +28,7 @@ export const KIND_META: Record<ReservationKind, { label: string; icon: typeof Pl
 };
 const KINDS = Object.keys(KIND_META) as ReservationKind[];
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]";
+const input = "h-11 w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-field-focus";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
@@ -172,7 +172,7 @@ export function ReservationSheet({
                     maxLength={MAX_CONFIRMATION_CHARS}
                     rows={6}
                     placeholder="Paste the confirmation email or voucher text here"
-                    className={cn(input, "resize-y text-sm")}
+                    className={cn(input, "h-auto resize-y text-sm")}
                   />
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground">Nothing is saved until you review it.</span>
@@ -284,7 +284,7 @@ export function ReservationSheet({
           </label>
 
           <Field label="Notes">
-            <textarea value={draft.notes} onChange={(e) => set("notes", e.target.value)} maxLength={1000} rows={3} placeholder="Gate code, what to bring, who is coming" className={cn(input, "resize-none")} />
+            <textarea value={draft.notes} onChange={(e) => set("notes", e.target.value)} maxLength={1000} rows={3} placeholder="Gate code, what to bring, who is coming" className={cn(input, "h-auto resize-none")} />
           </Field>
 
           <div>

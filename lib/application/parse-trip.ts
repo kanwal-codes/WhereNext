@@ -26,12 +26,12 @@ Rules:
 const readerChain = () => modelChainFor("bulk");
 
 /** One structured model call: a free-text trip description -> form fields. Never throws for a bad parse; returns {} instead. */
-export async function parseTripPrompt(prompt: string, signal?: AbortSignal): Promise<ParsedTrip> {
+export async function parseTripPrompt(prompt: string, signal?: AbortSignal, today: string = new Date().toISOString().slice(0, 10)): Promise<ParsedTrip> {
   try {
     return await generateStructured(
       readerChain(),
       [
-        { role: "system", content: system(new Date().toISOString().slice(0, 10)) },
+        { role: "system", content: system(today) },
         { role: "user", content: prompt.slice(0, 600) },
       ],
       parsedTripSchema,

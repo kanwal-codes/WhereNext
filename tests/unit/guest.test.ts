@@ -175,7 +175,7 @@ describe("POST /api/guest/start", () => {
     // Reading the sentence runs after the response; capture it instead of running it.
     const afterTasks: Array<() => unknown> = [];
     vi.doMock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: (task: () => unknown) => afterTasks.push(task) }));
-    const enrich = vi.fn(async (_supabase: unknown, _tripId: string, _prompt: string) => undefined);
+    const enrich = vi.fn(async (_supabase: unknown, _tripId: string, _prompt: string, _today?: string) => undefined);
     vi.doMock("@/lib/application/enrich-trip", () => ({ enrichTripFromPrompt: enrich }));
     const create = vi.fn(async (_userId: string, input: { name: string }, _options?: { opener?: boolean }) => ({ id: "trip-1", name: input.name, destination: null }));
     vi.doMock("@/features/trip/infrastructure/tripRepository", () => ({ createTripRepository: () => ({ create }) }));
@@ -209,7 +209,7 @@ describe("POST /api/guest/start", () => {
     expect(enrich).not.toHaveBeenCalled(); // nothing waited on the model
     expect(afterTasks).toHaveLength(1);
     const running = afterTasks[0]();
-    expect(enrich).toHaveBeenCalledWith(expect.anything(), "trip-1", "A long weekend in Montreal");
+    expect(enrich).toHaveBeenCalledWith(expect.anything(), "trip-1", "A long weekend in Montreal", expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)); // the sentence is read against the visitor's own date
     finishReading();
     await running;
   });

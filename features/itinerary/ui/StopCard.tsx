@@ -47,7 +47,7 @@ onDrop={(e) => {
   onDropAt(d, item.title);
 }}
     >
-<span className="absolute top-1/2 -left-7 grid h-[18px] w-[18px] -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
+<span className="absolute top-1/2 -left-7 grid size-[18px] -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
   <span className={cn("size-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
 </span>
 <div
@@ -136,7 +136,7 @@ onDrop={(e) => {
     <MoreHorizontal className="size-4" />
   </button>
   <div className={cn("col-span-3 max-sm:col-span-2 row-start-2 flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:flex sm:shrink-0 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100", openTools === item.id ? "flex" : "hidden")}>
-    <button
+    <button type="button"
       aria-label={`Move ${item.title} earlier in the day`}
       onClick={() => moveWithinDay(item, -1)}
       disabled={locked || itemIndex === 0}
@@ -144,7 +144,7 @@ onDrop={(e) => {
     >
       <ChevronUp className="size-3.5" />
     </button>
-    <button
+    <button type="button"
       aria-label={`Move ${item.title} later in the day`}
       onClick={() => moveWithinDay(item, 1)}
       disabled={locked || itemIndex === count - 1}
@@ -152,16 +152,16 @@ onDrop={(e) => {
     >
       <ChevronDown className="size-3.5" />
     </button>
-    <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
+    <button type="button" aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
       <ArrowUp className="size-3.5" />
     </button>
-    <button aria-label="Move to next day" onClick={() => move(item, 1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
+    <button type="button" aria-label="Move to next day" onClick={() => move(item, 1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
       <ArrowDown className="size-3.5" />
     </button>
-    <button aria-label={locked ? "Unlock" : "Lock"} onClick={() => toggleLock(item)} className="rounded-lg p-1.5 transition-colors hover:bg-accent">
+    <button type="button" aria-label={locked ? "Unlock" : "Lock"} onClick={() => toggleLock(item)} className="rounded-lg p-1.5 transition-colors hover:bg-accent">
       {locked ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
     </button>
-    <button aria-label="Remove" onClick={() => remove(item)} disabled={locked} className="rounded-lg p-1.5 text-destructive transition-colors hover:bg-accent disabled:opacity-30">
+    <button type="button" aria-label="Remove" onClick={() => remove(item)} disabled={locked} className="rounded-lg p-1.5 text-destructive transition-colors hover:bg-accent disabled:opacity-30">
       <Trash2 className="size-3.5" />
     </button>
   </div>

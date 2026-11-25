@@ -11,6 +11,7 @@ import { writeStayAbout } from "@/lib/application/stay-about";
 import { pickHotelContact } from "@/lib/application/stay-contact";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
+import { localToday } from "@/lib/local-today";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { AI_TEXT_TTL_MS, cached } from "@/lib/server/ttl-cache";
 
@@ -78,7 +79,7 @@ export async function runStayDetails(request: Request, hotelId: string, { supaba
   const { checkin, checkout, assumed } = resolveStayDates(q.get("checkin"), q.get("checkout"), {
     checkin: (trip as { start_date?: string | null } | null)?.start_date,
     checkout: (trip as { end_date?: string | null } | null)?.end_date,
-  });
+  }, localToday(request.headers));
 
   // A Google Hotels property: its own details call carries the content, who sells it at what price, the reviews and what is near.
   if (google) {

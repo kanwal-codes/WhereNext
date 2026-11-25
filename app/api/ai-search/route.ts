@@ -6,6 +6,7 @@ import { withRoute, fail } from "@/lib/server/with-route";
 import { parseAiSearch } from "@/lib/application/ai-search";
 import { cached } from "@/lib/server/ttl-cache";
 import { stayTypesHint } from "@/lib/server/stay-provider";
+import { localToday } from "@/lib/local-today";
 
 const bodySchema = z.object({
   scope: z.enum(["stays", "eat", "flights"]),
@@ -19,7 +20,7 @@ export const POST = withRoute(async (request: Request) => {
   try {
     await requireUser({ limit: LIMITS.llm });
     const { scope, query, place } = bodySchema.parse(await request.json());
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday(request.headers);
     // The day is in the key: "saturday" and "tomorrow" mean something different tomorrow.
     const directive = await cached(`ai-search:home:${scope}:${today}:${(place ?? "").toLowerCase()}:${query.toLowerCase()}`, 6 * 60 * 60_000, () => parseAiSearch(scope, query, { today, place, stayTypes: scope === "stays" ? stayTypesHint() : undefined }, request.signal));
     return NextResponse.json({ directive });

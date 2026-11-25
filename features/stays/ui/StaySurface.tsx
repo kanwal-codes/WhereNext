@@ -69,7 +69,7 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
 /** A date cell: the date large in the display face, the label above it; the real date input sits invisibly over it, so a tap opens the native picker. */
 function DateCell({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
   return (
-    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 max-lg:rounded-2xl max-lg:bg-muted max-lg:focus-within:bg-card max-lg:focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
+    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 max-lg:rounded-2xl max-lg:bg-muted max-lg:focus-within:bg-card max-lg:focus-within:shadow-field-focus">
       <span className={cellLabel}>{label}</span>
       <span className={cn("mt-2 block font-display text-xl leading-none font-medium tracking-[-0.02em] tabular-nums", !value && "text-muted-foreground")}>{value ? fmtLong(value) : "Add date"}</span>
       <input type="date" value={value} min={min} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" />
@@ -405,7 +405,7 @@ export function StaySurface({ tripId, destination, onSearchActive }: { tripId: s
             <SheetHeader title="Stays" onClose={() => setBarOpen(false)} bordered={false} />
             <div className={cn("px-4 pb-5", keyboard && "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-0 pt-1")}>
             {/* The place is typed here, the way the flights search takes it: another city anchors the search there. The chevron opens the trip's own cities and areas when there are some. */}
-            <div onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} className="mb-2 flex items-center gap-3 rounded-2xl bg-muted px-4 py-3.5 transition-shadow focus-within:bg-card focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
+            <div onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} className="mb-2 flex items-center gap-3 rounded-2xl bg-muted px-4 py-3.5 transition-shadow focus-within:bg-card focus-within:shadow-field-focus">
               <div className="min-w-0 flex-1">
                 <span className="block text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">Place</span>
                 <DestinationCombobox tripId={tripId ?? undefined} endpoint={standalone ? "/api/account/places/autocomplete" : undefined} value={placeText} onChange={setPlaceText} onSelect={(text) => { setPlaceText(text); setNear(!standalone && text.trim() === cityName.trim() ? "" : text); }} placeholder={standalone && destination.trim() ? destination.split(",")[0]!.trim() : "Where to?"} ariaLabel="Place" quietFocus inputClassName="mt-1.5 block h-7 w-full truncate bg-transparent font-display text-xl leading-7 font-medium tracking-[-0.02em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70" />

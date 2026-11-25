@@ -107,7 +107,7 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
               {d!.displayName?.text ?? "Place"}
             </Link>
             {d!.formattedAddress && <p className="mt-0.5 truncate pr-6 text-xs text-muted-foreground">{d!.formattedAddress}</p>}
-            <button
+            <button type="button"
               onClick={() => onChoose(id, d!)}
               disabled={savedIds.has(id)}
               className={cn(

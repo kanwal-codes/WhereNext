@@ -1,6 +1,12 @@
 import { formatDuration } from "@/lib/application/flight-risks";
 import type { Tradeoff } from "@/lib/application/flight-tradeoff";
 
+/** The clock time of an ISO moment ("6:20 PM"); a value that is not a date is shown as given. */
+export const clock = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
+};
+
 /** "Air Canada · SWISS" → "Air Canada +1", "Air Canada + 2 more" → "Air Canada +2": a name that fits a tile. */
 export function shortAirline(name: string): string {
   const parts = name.split(/\s*(?:·|,|\+)\s*/).map((p) => p.trim()).filter(Boolean);

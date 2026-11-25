@@ -279,7 +279,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
             )}
           </div>
           {onDetails && (
-            <button type="button" onClick={onDetails} aria-label={`Details: ${offer.airline}, ${clockOf(offer.departAt)} to ${clockOf(offer.arriveAt)}`} className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            <button type="button" onClick={onDetails} aria-label={`Details: ${offer.airline}, ${clockOf(offer.departAt)} to ${clockOf(offer.arriveAt)}`} className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-button transition-[transform,filter] duration-200 hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
               {roundTrip && offer.departureToken ? "Choose your return" : "See this flight"} <ArrowUpRight className="size-4" aria-hidden />
             </button>
           )}

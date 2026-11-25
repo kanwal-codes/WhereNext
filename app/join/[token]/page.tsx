@@ -8,7 +8,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Join a trip — Where next?" };
+export const metadata = { title: "Join a trip · Where next?", robots: { index: false, follow: false } };
 
 function JoinCard({ children }: { children: ReactNode }) {
   return (

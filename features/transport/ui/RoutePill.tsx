@@ -32,8 +32,8 @@ export function RoutePill({ from, to, loading, onOpen, className }: { from: stri
       ) : (
         // The place you are going is the line that matters: large and bold. Where you leave from is the quiet line above it (no "From": the two lines read as a route).
         <span className="grid min-w-0 flex-1 justify-items-center">
-          <span className="truncate text-[0.6875rem] font-normal leading-3.5 tracking-[0.01em] text-ink-soft">{from ? city(from) : "Add a start"}</span>
-          <span className={cn("truncate font-display text-[0.9375rem] font-semibold leading-[1.15rem] tracking-[-0.012em]", !to && "font-medium text-muted-foreground")}>{to ? city(to) : "Where to?"}</span>
+          <span className="truncate text-2xs font-normal leading-3.5 tracking-[0.01em] text-ink-soft">{from ? city(from) : "Add a start"}</span>
+          <span className={cn("truncate font-display text-body font-semibold leading-[1.15rem] tracking-[-0.012em]", !to && "font-medium text-muted-foreground")}>{to ? city(to) : "Where to?"}</span>
         </span>
       )}
       {loading && (

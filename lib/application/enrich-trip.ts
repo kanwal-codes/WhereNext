@@ -40,8 +40,8 @@ export function blankTripFields(current: TripRow, fields: ParsedTrip): Record<st
 
 /** Reads the sentence with the model and fills the trip's blanks. Runs after the response, so the
  *  visitor is already in the chat; the sidebar updates itself when the trip row changes. */
-export async function enrichTripFromPrompt(supabase: SupabaseClient, tripId: string, prompt: string): Promise<void> {
-  const fields = await parseTripPrompt(prompt);
+export async function enrichTripFromPrompt(supabase: SupabaseClient, tripId: string, prompt: string, today?: string): Promise<void> {
+  const fields = await parseTripPrompt(prompt, undefined, today);
   const current = await supabase
     .from("trips")
     .select("name,destination,origin,travelers,duration_days,start_date,end_date,hero_photo_name")

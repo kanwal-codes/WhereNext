@@ -246,14 +246,14 @@ export function AiSearchBar({
             aria-label={speech.listening ? "Stop dictation" : "Dictate"}
             aria-pressed={speech.listening}
             className={cn(
-              "grid size-7 max-lg:h-10 max-lg:w-10 shrink-0 place-items-center rounded-full border transition-colors",
+              "grid size-7 max-lg:size-10 shrink-0 place-items-center rounded-full border transition-colors",
               speech.listening ? "border-transparent bg-muted text-destructive" : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
             <Mic className={cn("size-3.5", speech.listening && "animate-pulse")} />
           </button>
         )}
-        <button type="submit" disabled={busy || !text.trim()} className="btn-primary-sm shrink-0">
+        <button type="submit" disabled={busy || !text.trim()} aria-label={busy ? "Asking" : "Ask"} className="btn-primary-sm shrink-0">
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Ask"}
         </button>
       </form>

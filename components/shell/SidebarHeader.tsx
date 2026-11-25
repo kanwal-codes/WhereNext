@@ -44,7 +44,7 @@ export function SidebarHeader({ trip, tripId, wide, collapsed, allTripsHref, onC
         >
           <BrandMark variant="compact" />
         </Link>
-        <button
+        <button type="button"
           onClick={onExpand}
           aria-label="Expand sidebar"
           title="Expand sidebar"

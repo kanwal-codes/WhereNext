@@ -12,6 +12,7 @@ import { SheetHeader } from "@/components/SheetHeader";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type FlightOffer, type FlightRoute, type PanelState } from "@/components/TripPanelProvider";
+import { clock } from "@/features/conversation/ui/blocks/flightCopy";
 import { FlightDetail } from "@/features/conversation/ui/panels/FlightDetail";
 import { journeyLegs } from "@/features/conversation/ui/panels/FlightJourney";
 import { formatDuration } from "@/lib/application/flight-risks";
@@ -39,10 +40,6 @@ import { FlightSearchSheet } from "./FlightSearchSheet";
 
 /** Rows shown under the picks before "More". */
 const ROWS = 6;
-const clock = (value: string) => {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
-};
 
 /** Google's read on the dates, as one quiet line on one row (not a banner): low, typical or high for the route, and what is usual. */
 function InsightLine({ level, usual }: { level: "low" | "typical" | "high"; usual: string | null }) {

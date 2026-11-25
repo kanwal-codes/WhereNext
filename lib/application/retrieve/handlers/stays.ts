@@ -12,7 +12,7 @@ type StaysCall = Extract<ToolCall, { tool: "stays" }>;
 export async function handleStays(call: StaysCall, ctx: RetrieveContext): Promise<void> {
   const provider = stayProvider();
   if (!provider) return;
-  const { checkin, checkout, assumed: assumedDates } = resolveStayDates(call.checkin, call.checkout);
+  const { checkin, checkout, assumed: assumedDates } = resolveStayDates(call.checkin, call.checkout, undefined, ctx.filters.today);
   const adults = ctx.filters.travelers ?? undefined;
   // Same 5-minute, party/date-aware cache the Stays tab route uses — a chat ask for a hotel
   // right after (or before) browsing the tab shouldn't re-hit the provider for the same

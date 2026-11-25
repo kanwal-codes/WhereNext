@@ -8,16 +8,9 @@ import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/component
 import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signUp } from "@/features/identity/application/authClient";
 import { safeRedirect } from "@/lib/client/safe-redirect";
+import { strengthOf } from "@/lib/password-strength";
 import { authErrorText } from "@/features/identity/application/saveErrors";
 
-function strengthOf(pw: string) {
-  let score = 0;
-  if (pw.length >= 8) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  return score;
-}
 const labels = ["Too short", "Weak", "Fair", "Good", "Strong"];
 
 export default function SignUpPage() {
@@ -74,14 +67,14 @@ export default function SignUpPage() {
         <div className="space-y-2">
           <p>
             Already have an account?{" "}
-            <Link href={redirect ? `/sign-in?redirect=${encodeURIComponent(redirect)}` : "/sign-in"} className="link-underline font-medium text-foreground">
+            <Link href={redirect ? `/sign-in?redirect=${encodeURIComponent(redirect)}` : "/sign-in"} className="link-underline -my-3 inline-block py-3 font-medium text-foreground">
               Sign in
             </Link>
           </p>
           <p>
-            <Link href="/privacy" className="link-underline -my-2 inline-block py-2">Privacy</Link>
+            <Link href="/privacy" className="link-underline -my-3 inline-block py-3">Privacy</Link>
             {" · "}
-            <Link href="/terms" className="link-underline -my-2 inline-block py-2">Terms</Link>
+            <Link href="/terms" className="link-underline -my-3 inline-block py-3">Terms</Link>
           </p>
         </div>
       }
@@ -132,7 +125,7 @@ export default function SignUpPage() {
               />
             ))}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">{labels[score]}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{pw ? labels[score] : "Use 8 or more characters"}</p>
         </div>
 
         <label className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">

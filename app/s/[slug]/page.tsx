@@ -15,6 +15,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
+    // "Unlisted": anyone with the link can open it and link previews still read the tags below, but search engines do not index it.
+    robots: { index: false, follow: false },
     openGraph: { title, description, type: "website", images: [`/s/${(await params).slug}/map`] },
     twitter: { card: "summary_large_image", title, description },
   };

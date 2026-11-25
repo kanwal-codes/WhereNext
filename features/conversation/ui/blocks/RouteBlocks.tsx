@@ -12,6 +12,7 @@ import { RowBar, RowValue, Widget, WidgetAction, WidgetHero, WidgetPill, WidgetR
 import { parseRouteStep, routeGlyph, routeLines, splitRouteEnds } from "./routeText";
 import { controlSecondary, money, type } from "./ui";
 import { BlockHandlers } from "./blockShared";
+import { clock } from "@/features/transport/domain/route-view";
 
 type RouteSummaryBlockData = Extract<AssistantBlock, { type: "route_summary" }>;
 
@@ -136,7 +137,6 @@ function RouteRibbon({ route }: { route: RouteSummaryBlockData }) {
   );
 }
 
-const clockOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null);
 
 export function RouteSummaryCard({ route, onOpenPanel, onFollowup }: { route: RouteSummaryBlockData } & Pick<BlockHandlers, "onOpenPanel" | "onFollowup">) {
   const distance = useDistance();
@@ -148,7 +148,7 @@ export function RouteSummaryCard({ route, onOpenPanel, onFollowup }: { route: Ro
   const nearby = route.mode === "walking" && minutes <= 5;
   const steps = route.steps.map(parseRouteStep).map((step) => ({ ...step, minutes: stepMinutes(step.duration) }));
   const longest = Math.max(...steps.map((step) => step.minutes), 1);
-  const leaves = clockOf(route.departureTime), arrives = clockOf(route.arrivalTime);
+  const leaves = clock(route.departureTime, route.timeZone), arrives = clock(route.arrivalTime, route.timeZone);
   const drawable = (route.legs?.some((leg) => leg.path.length > 1) ?? false) || (route.path?.length ?? 0) > 1;
   // The same real street map the comparison card draws (the sketch stays underneath until it arrives, or if it never does).
   const lines = (route.legs?.length ? route.legs.map((leg) => ({ path: leg.path, color: legColor(leg) })) : route.path ? [{ path: route.path, color: legColor({ mode: route.mode }) }] : [])
@@ -302,7 +302,7 @@ export function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup 
             label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: ${onOpenPanel ? "open the details" : "show on the map"}`}
             lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode, route.steps), { className: "size-[1.125rem]" })}</span>}
             title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-2xs max-lg:text-xs">Quickest</WidgetPill> : null}</span>}
-            detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
+            detail={[clock(route.departureTime, route.timeZone) ? `leaves ${clock(route.departureTime, route.timeZone)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
             mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
             value={<RowValue>{minutes(route)}</RowValue>}
           />

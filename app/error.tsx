@@ -17,7 +17,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       title="The route hit a snag."
       actions={
         <>
-          <button onClick={reset} className="btn-primary">Try again</button>
+          <button type="button" onClick={reset} className="btn-primary">Try again</button>
           <Link href="/trips" className="btn-secondary">Go to your trips</Link>
         </>
       }

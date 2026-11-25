@@ -36,8 +36,8 @@ export function TodayPhone({ tripId, today }: { tripId: string; today: TodayData
   return (
     <div className="px-4 pt-2 pb-16">
       <div className="flex items-center justify-between gap-3">
-        <p className="eyebrow">{running ? (dateLine ?? "Today") : startLine ? `Trip starts ${startLine}` : "Your trip"}</p>
-        {viewCity && <TripWeather tripId={tripId} location={viewCity} />}
+        <p className="eyebrow shrink-0 whitespace-nowrap">{running ? (dateLine ?? "Today") : startLine ? `Trip starts ${startLine}` : "Your trip"}</p>
+        {viewCity && <TripWeather tripId={tripId} location={viewCity} className="min-w-0" />}
       </div>
       {isOffline && <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><CloudOff className="size-3.5" /> Showing your last saved copy</p>}
       <h1 className="mt-1 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{running ? "Today" : `Day ${viewDay}`}</h1>

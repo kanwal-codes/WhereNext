@@ -32,7 +32,7 @@ function Thumb({ item }: { item: TimelineItem }) {
   const [failed, setFailed] = useState(false);
   const Icon = KIND_META[item.kind].icon;
   return (
-    <TripArt seed={hashString(item.id)} className="grid size-20 shrink-0 place-items-center rounded-2xl max-lg:h-12 max-lg:w-12 max-lg:rounded-2xl">
+    <TripArt seed={hashString(item.id)} className="grid size-20 shrink-0 place-items-center rounded-2xl max-lg:size-12 max-lg:rounded-2xl">
       {item.thumbnail && !failed ? (
         <BlurImage src={hotelPhotoSrc(item.thumbnail)} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (

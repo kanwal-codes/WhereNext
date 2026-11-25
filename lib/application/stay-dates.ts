@@ -1,20 +1,22 @@
 const DAY = 864e5;
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-const futureDate = (value?: string | null) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) && value > iso(Date.now()) ? value : null);
+const futureDate = (value: string | null | undefined, today: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) && value > today ? value : null);
 
 /**
  * Resolve check-in/out for a stay search. Prefers explicit dates, then the
  * trip's own dates (`fallback`), then a 3-night stay ~6 weeks out — the last of
  * which is flagged `assumed` so the UI and assistant can say the dates are an
- * example.
+ * example. `today` is the asker's own date (UTC when not given): at 9 PM in Toronto the UTC date is already tomorrow, and a
+ * check-in tomorrow would otherwise count as not in the future.
  */
 export function resolveStayDates(
   checkin?: string | null,
   checkout?: string | null,
   fallback?: { checkin?: string | null; checkout?: string | null },
+  today: string = iso(Date.now()),
 ): { checkin: string; checkout: string; assumed: boolean } {
-  const explicitIn = futureDate(checkin);
-  const tripIn = futureDate(fallback?.checkin);
+  const explicitIn = futureDate(checkin, today);
+  const tripIn = futureDate(fallback?.checkin, today);
   const ci = explicitIn ?? tripIn ?? iso(Date.now() + 42 * DAY);
   const assumed = !explicitIn && !tripIn;
 

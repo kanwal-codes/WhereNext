@@ -7,6 +7,7 @@ import { createTripRepository } from "@/features/trip/infrastructure/tripReposit
 import { DISCOVER_CATEGORY_KEYS, parseAiSearch, type AiSearchScope } from "@/lib/application/ai-search";
 import { cached } from "@/lib/server/ttl-cache";
 import { stayTypesHint } from "@/lib/server/stay-provider";
+import { localToday } from "@/lib/local-today";
 
 const bodySchema = z.object({
   scope: z.enum(["stays", "discover", "getting-around", "flights"]),
@@ -22,7 +23,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { limit: LIMITS.llm });
     const { scope, query, place, answer } = bodySchema.parse(await request.json());
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday(request.headers);
 
     const trip = await createTripRepository(supabase).get(tripId);
     const ctx = {

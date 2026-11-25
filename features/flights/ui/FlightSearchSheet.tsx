@@ -119,9 +119,9 @@ export function FlightSearchSheet({ open, onClose, tripId, draft, onSearch, focu
         <div className="mt-3.5 flex items-center justify-between gap-3">
           <SlidingTabs label="Trip type" className="w-fit daisy-tabs-sm" value={round ? 0 : 1} onChange={(i) => toggleRound(i === 0)} items={TRIP_TYPES} />
           <div className="flex items-center gap-1 rounded-full bg-muted p-1" role="group" aria-label="Travellers">
-            <button type="button" aria-label="Fewer travellers" disabled={fields.adults <= 1} onClick={() => set({ adults: fields.adults - 1 })} className="grid size-9 place-items-center rounded-full text-ink-soft transition-[background-color,transform,opacity] active:scale-[0.92] enabled:hover:bg-card disabled:opacity-35"><Minus className="size-4" aria-hidden /></button>
-            <span className="min-w-[5.5rem] text-center text-sm font-medium tabular-nums" aria-live="polite">{travellersLine(fields.adults)}</span>
-            <button type="button" aria-label="More travellers" disabled={fields.adults >= MAX_TRAVELLERS} onClick={() => set({ adults: fields.adults + 1 })} className="grid size-9 place-items-center rounded-full text-ink-soft transition-[background-color,transform,opacity] active:scale-[0.92] enabled:hover:bg-card disabled:opacity-35"><Plus className="size-4" aria-hidden /></button>
+            <button type="button" aria-label="Fewer travellers" disabled={fields.adults <= 1} onClick={() => set({ adults: fields.adults - 1 })} className="grid size-9 shrink-0 place-items-center rounded-full text-ink-soft transition-[background-color,transform,opacity] active:scale-[0.92] enabled:hover:bg-card disabled:opacity-35"><Minus className="size-4" aria-hidden /></button>
+            <span className="min-w-[5rem] text-center text-sm font-medium tabular-nums" aria-live="polite">{travellersLine(fields.adults)}</span>
+            <button type="button" aria-label="More travellers" disabled={fields.adults >= MAX_TRAVELLERS} onClick={() => set({ adults: fields.adults + 1 })} className="grid size-9 shrink-0 place-items-center rounded-full text-ink-soft transition-[background-color,transform,opacity] active:scale-[0.92] enabled:hover:bg-card disabled:opacity-35"><Plus className="size-4" aria-hidden /></button>
           </div>
         </div>
 

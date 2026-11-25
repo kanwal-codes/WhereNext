@@ -6,6 +6,7 @@ import { serpConfigured } from "@/packages/providers/serpapi/client";
 import { flightPlaces, searchFlightOffers } from "@/lib/server/flight-search";
 import { toFlightItem } from "@/lib/application/flight-items";
 import { resolveCurrency } from "@/lib/currency";
+import { localToday } from "@/lib/local-today";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -30,7 +31,7 @@ export async function runFlightSearch(request: Request, who: { supabase: Supabas
   if (!serpConfigured() && !process.env.DUFFEL_API_KEY) return NextResponse.json({ error: "Flight search is not configured" }, { status: 503 });
 
   // Never trust a stale/absent date — fall back to the trip's start, else ~6 weeks out.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday(request.headers);
   const [trip, prefs, defaults] = await Promise.all([
     tripId ? createTripRepository(who.supabase).get(tripId) : null,
     tripId ? who.supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle() : null,

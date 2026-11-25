@@ -11,6 +11,7 @@ import { loadTripContext, formatTripMemory, describeMembers, formatExpenses, typ
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
+import { localToday } from "@/lib/local-today";
 import { lastSuggestedFollowups, modelHistory, surfacedEarlierFrom } from "@/lib/application/orchestrate/thread-history";
 import { SSE_HEADERS, doneFrame, isAbortError, buildStep, progressFrame, textFrame, toolSteps, truncatedFrame } from "@/lib/server/ai-stream-frames";
 import { openComposeStream } from "@/lib/server/compose-stream";
@@ -182,7 +183,7 @@ export const POST = withRoute(async function POST(request: Request) {
           result = await runAssistantTurn(
             { supabase, tripId },
             {
-              tripCtx, prompt, history: modelMessages, tripSummary, viewContext, surfacedEarlier, signal: combinedAbort,
+              tripCtx, prompt, history: modelMessages, tripSummary, viewContext, surfacedEarlier, today: localToday(request.headers), signal: combinedAbort,
               deriveTripSummary: (ctx) => [formatTripMemory(ctx), membersLine, expensesOf(ctx), threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" "),
               onRetrieveStart: (calls) => { const steps = toolSteps(calls); safeEnqueue(progressFrame("retrieve", steps.length ? steps.join("\n") : undefined)); },
               onRetrieveDone: (capabilities) => safeEnqueue(progressFrame("decide", buildStep(capabilities))),

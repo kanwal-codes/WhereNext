@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LegalDocument, LegalSection } from "@/components/LegalDocument";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Where Next",
+  title: "Privacy Policy · Where next?",
   description: "How Where Next collects, uses, and shares information when you plan trips with us.",
 };
 

@@ -171,6 +171,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     steps: z.array(z.string().max(160)).max(12).default([]),
     departureTime: z.string().optional(),
     arrivalTime: z.string().optional(),
+    /** IANA zone the journey starts in, so its times read as the local clocks do, not as the reader's. */
+    timeZone: z.string().max(64).optional(),
     /** The route's line as [lng, lat] (thinned), so the card can open it on a map. */
     path: z.array(z.tuple([z.number(), z.number()])).max(80).optional(),
     /** The journey part by part (each in its own mode, thinned), so the map can draw a train, then a walk, and mark where one hands over to the next. */

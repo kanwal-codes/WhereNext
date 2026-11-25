@@ -166,13 +166,4 @@ export function ToggleRow({ title, note, checked, onChange }: { title: string; n
   );
 }
 
-export function strengthOf(pw: string) {
-  let s = 0;
-  if (pw.length >= 8) s++;
-  if (/[A-Z]/.test(pw)) s++;
-  if (/[0-9]/.test(pw)) s++;
-  if (/[^A-Za-z0-9]/.test(pw)) s++;
-  return s;
-}
-
 export const asDietaryArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : typeof v === "string" && v ? [v] : []);

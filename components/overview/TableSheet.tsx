@@ -15,7 +15,7 @@ import type { Reservation } from "@/packages/contracts/reservation";
 
 export type RestaurantChoice = { providerId: string; name: string; address: string | null; mapsUrl: string | null };
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]";
+const input = "h-11 w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-field-focus";
 const linkBtn = "daisy-btn daisy-btn-outline h-auto min-h-11 flex-1 gap-2 rounded-full border-border bg-card px-4 py-2 font-medium shadow-none hover:border-foreground/30 hover:bg-accent";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
@@ -248,7 +248,7 @@ export function TableSheet({
           </Field>
 
           <Field label="Notes for yourself">
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={400} rows={2} placeholder="Window seat, allergy, birthday" className={cn(input, "resize-none")} />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={400} rows={2} placeholder="Window seat, allergy, birthday" className={cn(input, "h-auto resize-none")} />
           </Field>
 
           {ready && (

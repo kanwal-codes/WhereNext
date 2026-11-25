@@ -42,7 +42,7 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
                   aria-label="Change photo"
-                  className="group relative block size-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.985] sm:h-32 sm:w-32"
+                  className="group relative block size-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.985] sm:size-32"
                 >
                   {avatarUrl && !avatarError ? (
                     // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset

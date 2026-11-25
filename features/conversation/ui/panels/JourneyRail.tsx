@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChevronDown, Clock, Moon, Plane, Plug, Tv, Wifi } from "lucide-react";
 import type { FlightOffer } from "@/components/TripPanelProvider";
 import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilters";
-import { boardItem } from "@/features/conversation/ui/blocks/flightCopy";
+import { boardItem, clock } from "@/features/conversation/ui/blocks/flightCopy";
 import { prettyDate, type } from "@/features/conversation/ui/blocks/ui";
 import { formatDuration, layoverRisk } from "@/lib/application/flight-risks";
 import { cn } from "@/lib/utils";
@@ -15,10 +15,7 @@ type FullLeg = NonNullable<FlightOffer["legs"]>[number];
 /** A leg as the rail needs it. Times and length are missing for a card saved before the journey was kept. */
 export type RailLeg = Omit<FullLeg, "departAt" | "arriveAt" | "minutes"> & { departAt?: string; arriveAt?: string; minutes?: number };
 
-export const clock = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
-};
+export { clock };
 const dayOf = (iso: string) => prettyDate(iso.slice(0, 10)) ?? "";
 const airportName = (name?: string) => name?.replace(/\s+(International\s+)?Airport$/i, "");
 
