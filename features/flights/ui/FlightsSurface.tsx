@@ -11,17 +11,19 @@ import { Sheet } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
-import { useTripPanelMaybe, type PanelState } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, type FlightOffer, type FlightRoute, type PanelState } from "@/components/TripPanelProvider";
 import { FlightDetail } from "@/features/conversation/ui/panels/FlightDetail";
+import { journeyLegs } from "@/features/conversation/ui/panels/FlightJourney";
+import { formatDuration } from "@/lib/application/flight-risks";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { activeFlightFilters, ALL_SORTS, applyFlightView, availableFilters, DEFAULT_FLIGHT_VIEW, FlightControls, TIMES_OF_DAY, type FlightView } from "@/features/conversation/ui/blocks/FlightFilters";
 import { FlightRowsSkeleton, useFlightSearch, type FlightItems } from "@/features/conversation/ui/blocks/FlightSearch";
 import { cheapestOffer, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "@/features/conversation/ui/blocks/FlightWidget";
 import { SearchSweep } from "@/features/conversation/ui/blocks/SearchBarParts";
-import { formatDuration } from "@/lib/application/flight-risks";
 import { controlSecondary, money, prettyDate, type } from "@/features/conversation/ui/blocks/ui";
 import { cachedGet } from "@/lib/client/cached-get";
 import { AiSearchBar } from "@/components/AiSearchBar";
+import { ListingAsk } from "@/components/ListingAsk";
 import { AnswerSkeleton, AnswerText } from "@/components/AnswerText";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { useShowMore } from "@/lib/use-show-more";
@@ -58,6 +60,23 @@ function InsightLine({ level, usual }: { level: "low" | "typical" | "high"; usua
  * in the same wide pill Stay uses. Before a search the page is a few places worth flying to; after one it is the best fare first, then the rest.
  * The search is a sheet that drops from the top: it is asked once, and priced once.
  */
+/** What the open flight says about itself, in the shape the listing chat reads: the fare, the times, the stops, the layovers leg by leg, the cabin and the bag. */
+function flightItem(f: FlightOffer, route: FlightRoute) {
+  const legs = journeyLegs(f, route.origin, route.destination);
+  const wait = legs.reduce((sum, l) => sum + (l.layoverMinutes ?? 0), 0);
+  const detail = [f.airline, f.stops === 0 ? "nonstop" : `${f.stops} stop${f.stops > 1 ? "s" : ""}`, formatDuration(f.durationMinutes), f.cabinClass, f.baggage ? `bags: ${f.baggage}` : null].filter(Boolean).join(", ");
+  const journey = legs.length > 1
+    ? `Journey: ${legs.map((l) => `${l.from} to ${l.to}${l.flightNumber ? ` (${l.flightNumber})` : ""}${l.departAt && l.arriveAt ? ` ${l.departAt.slice(11, 16)}-${l.arriveAt.slice(11, 16)}` : ""}${l.layoverMinutes ? `, then a ${formatDuration(l.layoverMinutes)} layover${l.overnight ? " overnight" : ""}` : ""}`).join("; ")}.${wait ? ` Layovers total ${formatDuration(wait)}.` : ""}`
+    : "";
+  return {
+    name: routeLine(route.origin, route.destination),
+    detail: detail.slice(0, 200),
+    price: `${f.price} ${f.currency} per person${route.returnDate ? ", round trip" : ", one way"}`,
+    when: `${f.departAt} to ${f.arriveAt}`,
+    ...(journey || f.fareConditions?.length ? { summary: [journey, f.fareConditions?.length ? `Fare rules: ${f.fareConditions.join("; ")}.` : ""].filter(Boolean).join(" ").slice(0, 700) } : {}),
+  };
+}
+
 export function FlightsSurface({ tripId, active = true, onSearchActive }: { tripId: string | null; /** In a trip: told when there is a search to cancel (a search on screen or an answer), with the way to cancel it; null when the page is as it started. */ onSearchActive?: (cancel: (() => void) | null) => void; /** False while another view of the page (My flights) is in front: the search stays mounted but gives up the header. */ active?: boolean }) {
   const reduce = useReducedMotion();
   const trip = useTripDataMaybe()?.data?.trip;
@@ -379,7 +398,9 @@ export function FlightsSurface({ tripId, active = true, onSearchActive }: { trip
         {own && (
           <>
             <SheetHeader title={`${routeLine(own.route.origin, own.route.destination)}`} onClose={() => setOwn(null)} />
-            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain"><FlightDetail flight={own.flight} route={own.route} onSwitch={(flight) => setOwn({ ...own, flight })} /></div>
+            <ListingAsk key={own.flight.id ?? `${own.flight.airline}-${own.flight.departAt}`} panel={{ kind: "flight", flight: own.flight, route: own.route }} subjectKey={`flight:${own.flight.id ?? `${own.flight.airline}-${own.flight.departAt}`}`} placeholder="Ask about this flight — is it a good one?" items={() => [flightItem(own.flight, own.route)]}>
+              <FlightDetail flight={own.flight} route={own.route} onSwitch={(flight) => setOwn({ ...own, flight })} />
+            </ListingAsk>
           </>
         )}
       </Sheet>
